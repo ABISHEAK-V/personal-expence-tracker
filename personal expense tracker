@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Expense Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #e9f1ff, #dbeaff);
+      padding: 30px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #0057b8;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      background-color: #0057b8;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #003e85;
+    }
+    .hidden {
+      display: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    .chart-container {
+      height: 400px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Step 1: Name -->
+    <div id="step-1">
+      <h2>👋 Welcome! What's your name?</h2>
+      <input type="text" id="user-name" placeholder="Enter your name" />
+      <button onclick="nextStep(1)">Next</button>
+    </div>
+
+    <!-- Step 2: Salary -->
+    <div id="step-2" class="hidden">
+      <h2>💼 Enter your monthly salary</h2>
+      <input type="number" id="user-salary" placeholder="e.g., 50000" />
+      <button onclick="nextStep(2)">Next</button>
+    </div>
+
+    <!-- Step 3: EMI -->
+    <div id="step-3" class="hidden">
+      <h2>💳 Do you have any EMIs?</h2>
+      <select id="has-emi" onchange="toggleEmiInput()">
+        <option value="">Select</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+      <div id="emi-section" class="hidden">
+        <input type="number" id="emi-count" placeholder="How many EMIs?" oninput="generateEmiFields()" />
+        <div id="emi-fields"></div>
+      </div>
+      <button onclick="nextStep(3)">Next</button>
+    </div>
+
+    <!-- Step 4: Expense Tracking -->
+    <div id="step-4" class="hidden">
+      <h2>📊 Hello, <span id="display-name"></span>!</h2>
+      <p><strong>Salary:</strong> ₹<span id="display-salary"></span></p>
+      <p><strong>Total EMI:</strong> ₹<span id="emi-total"></span></p>
+
+      <h3>Add an Expense</h3>
+      <input type="text" id="expense-name" placeholder="Expense Name" />
+      <input type="number" id="expense-amount" placeholder="Amount" />
+      <select id="expense-category">
+        <option value="">Select Category</option>
+        <option>Food</option>
+        <option>Transport</option>
+        <option>Entertainment</option>
+        <option>Clothing</option>
+        <option>Rent</option>
+        <option>Groceries</option>
+        <option>Bills</option>
+        <option>Healthcare</option>
+        <option>Education</option>
+        <option>Subscriptions</option>
+        <option>Travel</option>
+        <option>Dining Out</option>
+        <option>Investments</option>
+        <option>Savings</option>
+        <option>Gifts</option>
+        <option>Maintenance</option>
+        <option>Personal</option>
+        <option>Other</option>
+      </select>
+      <input type="date" id="expense-date" />
+      <button onclick="addExpense()">Add Expense</button>
+
+      <h3>📋 Expenses</h3>
+      <table id="expense-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Amount</th>
+            <th>Category</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="chart-container">
+        <canvas id="expenseChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const userData = {
+      name: "",
+      salary: 0,
+      emis: [],
+      expenses: []
+    };
+
+    function nextStep(step) {
+      if (step === 1) {
+        const name = document.getElementById('user-name').value.trim();
+        if (!name) return alert("Please enter your name.");
+        userData.name = name;
+      }
+
+      if (step === 2) {
+        const salary = parseFloat(document.getElementById('user-salary').value);
+        if (isNaN(salary) || salary <= 0) return alert("Enter valid salary.");
+        userData.salary = salary;
+      }
+
+      if (step === 3) {
+        const hasEmi = document.getElementById('has-emi').value;
+        if (hasEmi === "yes") {
+          const emiCount = parseInt(document.getElementById('emi-count').value);
+          if (isNaN(emiCount) || emiCount <= 0) {
+            return alert("Please enter a valid EMI count.");
+          }
+          userData.emis = [];
+          for (let i = 0; i < emiCount; i++) {
+            const name = document.getElementById(`emi-name-${i}`).value.trim();
+            const amt = parseFloat(document.getElementById(`emi-amt-${i}`).value);
+            if (!name || isNaN(amt)) return alert("Enter valid EMI details.");
+            userData.emis.push({ name, amt });
+          }
+        }
+        showSummary();
+      }
+
+      document.getElementById(`step-${step}`).classList.add('hidden');
+      document.getElementById(`step-${step + 1}`).classList.remove('hidden');
+    }
+
+    function toggleEmiInput() {
+      const emiSection = document.getElementById('emi-section');
+      const hasEmi = document.getElementById('has-emi').value;
+      emiSection.classList.toggle('hidden', hasEmi !== "yes");
+    }
+
+    function generateEmiFields() {
+      const count = parseInt(document.getElementById('emi-count').value);
+      const container = document.getElementById('emi-fields');
+      container.innerHTML = "";
+      for (let i = 0; i < count; i++) {
+        container.innerHTML += `
+          <input type="text" id="emi-name-${i}" placeholder="EMI ${i + 1} Name" />
+          <input type="number" id="emi-amt-${i}" placeholder="EMI ${i + 1} Amount" />
+        `;
+      }
+    }
+
+    function showSummary() {
+      document.getElementById("display-name").textContent = userData.name;
+      document.getElementById("display-salary").textContent = userData.salary.toFixed(2);
+      const totalEmi = userData.emis.reduce((sum, e) => sum + e.amt, 0);
+      document.getElementById("emi-total").textContent = totalEmi.toFixed(2);
+    }
+
+    function addExpense() {
+      const name = document.getElementById("expense-name").value.trim();
+      const amount = parseFloat(document.getElementById("expense-amount").value);
+      const category = document.getElementById("expense-category").value;
+      const date = document.getElementById("expense-date").value;
+
+      if (!name || isNaN(amount) || !category || !date) {
+        return alert("Please fill all expense details.");
+      }
+
+      const expense = { name, amount, category, date };
+      userData.expenses.push(expense);
+      updateExpenseTable();
+      updateChart();
+    }
+
+    function updateExpenseTable() {
+      const tbody = document.querySelector("#expense-table tbody");
+      tbody.innerHTML = "";
+      userData.expenses.forEach(exp => {
+        const row = `<tr>
+          <td>${exp.name}</td>
+          <td>₹${exp.amount.toFixed(2)}</td>
+          <td>${exp.category}</td>
+          <td>${exp.date}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    let expenseChart;
+    function updateChart() {
+      const categoryTotals = {};
+      userData.expenses.forEach(exp => {
+        if (!categoryTotals[exp.category]) {
+          categoryTotals[exp.category] = 0;
+        }
+        categoryTotals[exp.category] += exp.amount;
+      });
+
+      const labels = Object.keys(categoryTotals);
+      const data = Object.values(categoryTotals);
+
+      if (expenseChart) expenseChart.destroy();
+
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      expenseChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#8e44ad', '#2ecc71', '#f39c12']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
